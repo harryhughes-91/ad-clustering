@@ -5,7 +5,9 @@ import streamlit as st
 import pandas as pd
 import os
 from PIL import Image
+import io
 import tempfile
+
 
 # Set the page configuration as the very first Streamlit command
 st.set_page_config(layout="wide", page_title="My App", page_icon="📊")
@@ -97,6 +99,34 @@ def display_cluster_images(df, selected_row, selected_image):
             except Exception as e:
                 st.error(f"Error loading image: {str(e)}")
 
+def display_cluster_distribution(df):
+    """Display table showing number of ads in each cluster for different advertisers"""
+    if 'cluster' not in df.columns or 'pagename' not in df.columns:
+        st.error("The dataset must contain both 'cluster' and 'pagename' columns to display cluster distribution.")
+        return
+    
+    # Create pivot table of cluster distribution
+    cluster_dist = pd.pivot_table(
+        df,
+        values='ad_id',
+        index='pagename',
+        columns='cluster',
+        aggfunc='count',
+        fill_value=0
+    )
+    
+    # Add total column
+    cluster_dist['Total'] = cluster_dist.sum(axis=1)
+    
+    # Sort by total number of ads descending
+    cluster_dist = cluster_dist.sort_values('Total', ascending=False)
+    
+    # Format column names
+    cluster_dist.columns = [f'Cluster {col}' if col != 'Total' else col for col in cluster_dist.columns]
+    
+    st.subheader("Number of Ads in Each Cluster")
+    st.dataframe(cluster_dist, use_container_width=True)
+
 def main():
     try:
         st.title("Brand Image Browser")
@@ -111,6 +141,9 @@ def main():
         df = process_uploaded_files(uploaded_csv, uploaded_images)
         if df is None:
             return
+        
+        # Display cluster distribution table
+        display_cluster_distribution(df)
 
         st.sidebar.header("Search By Brand")
         if 'pagename' not in df.columns:
